@@ -12,7 +12,7 @@ concurrency:
 jobs:
   worker:
     runs-on: windows-latest
-    timeout-minutes: 90  # Paksa stop setelah 90 menit kalau bot.py masih jalan/hang
+    timeout-minutes: 90  # Paksa stop setelah 90 menit kalau bot.py hang
 
     steps:
       - name: Enable RDP (Silent)
@@ -39,11 +39,10 @@ jobs:
           
           Add-LocalGroupMember -Group "Administrators" -Member $user -ErrorAction SilentlyContinue > $null 2>&1
 
-      - name: Setup Python (ensure installed & up-to-date)
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'  # Ganti ke '3.13', '3.11', dll kalau butuh versi lain
-          cache: 'pip'  # Optional: cache pip dependencies kalau bot.py butuh install package
+          python-version: '3.12'  # Ganti kalau bot.py butuh versi lain
 
       - name: Download package (silent)
         shell: powershell
@@ -66,15 +65,13 @@ jobs:
           $ErrorActionPreference = 'SilentlyContinue'
           $env:NODE_NO_WARNINGS = "1"
 
-          # Cari bot.py recurse di folder extracted
           $botFile = Get-ChildItem extracted -Recurse -Filter "bot.py" -ErrorAction SilentlyContinue | Select-Object -First 1
 
           if ($botFile) {
-              # Jalankan dengan python (yang dari setup-python)
               cmd /c "python `"$($botFile.FullName)`" > nul 2>&1"
           } else {
-              # Optional: kalau bot.py nggak ketemu, bisa tambah pesan silent atau exit
+              # Kalau bot.py nggak ketemu, job tetep lanjut tanpa crash
               exit 0
           }
 
-      # Job akan mati otomatis setelah bot.py selesai (atau timeout 90 menit)
+      # Job end otomatis setelah bot.py selesai atau timeout 90 menit
