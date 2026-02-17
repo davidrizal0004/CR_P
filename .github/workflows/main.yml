@@ -32,6 +32,7 @@ jobs:
         env:
           SRC_URL: ${{ secrets.LINK }}
         run: |
+          $ErrorActionPreference = "Stop"
           Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "p.jpg"
 
       - name: Rename & extract package
@@ -45,7 +46,7 @@ jobs:
 
           & "C:\Program Files\7-Zip\7z.exe" x p.7z -p"$Env:ARCHIVE_KEY" -oextracted -y
 
-          Write-Host "===== Extracted Files ====="
+          Write-Host "===== Extracted Structure ====="
           Get-ChildItem -Recurse extracted
 
       - name: Run worker (bot.py only)
@@ -53,11 +54,17 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          $botPath = "extracted\bot.py"
-
-          if (-Not (Test-Path $botPath)) {
+          if (-Not (Test-Path "extracted\bot.py")) {
               Write-Error "bot.py not found in extracted folder"
           }
 
-          Write-Host "Running bot.py..."
-          python $botPath
+          cd extracted
+
+          Write-Host "===== Current Directory ====="
+          Get-Location
+
+          Write-Host "===== Files in Current Directory ====="
+          Get-ChildItem
+
+          Write-Host "===== Running bot.py ====="
+          python bot.py
