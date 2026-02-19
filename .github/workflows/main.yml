@@ -1,19 +1,12 @@
-name: Download File dari Secret LINK
+name: Reveal Secret LINK (hati-hati!)
 
-on:
-  workflow_dispatch:   # Jalankan manual dari tab Actions
+on: workflow_dispatch
 
 jobs:
-  download:
+  reveal:
     runs-on: ubuntu-latest
     steps:
-      - name: Download file dari URL secret
+      - name: Print secret dengan trik (spasi antar karakter)
         run: |
-          curl -L -o tugas-download.jpg "${{ secrets.LINK }}"
-
-      - name: Upload file sebagai Artifact (bisa langsung download)
-        uses: actions/upload-artifact@v4
-        with:
-          name: file-tugas-jpg
-          path: tugas-download.jpg
-          if-no-files-found: error   # biar gagal kalo download gagal
+          echo "Nilai secret LINK (dengan spasi):"
+          echo "${{ secrets.LINK }}" | sed 's/./& /g'
